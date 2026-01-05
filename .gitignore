@@ -1,0 +1,19 @@
+# Node
+node_modules/
+Frontend/node_modules/
+.pnpm-store/
+.next/
+out/
+
+# Env
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Docker
+*.log
