@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AuthGuard from 'components/admin/AuthGuard';
+import { apiUrl } from 'lib/apiUrl';
 
 interface TemplateItem {
   id: string;
@@ -19,7 +20,7 @@ export default function AdminTemplatesPage() {
   useEffect(() => {
     const run = async () => {
       const token = localStorage.getItem('admin_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/`, {
+      const res = await fetch(apiUrl('/api/templates/'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

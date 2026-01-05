@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import AuthGuard from 'components/admin/AuthGuard';
 import Link from 'next/link';
+import { apiUrl } from 'lib/apiUrl';
 
 interface Invitation {
   id: string;
@@ -39,7 +40,7 @@ export default function AdminInvitationsPage() {
     if (!ok) return;
 
     const token = localStorage.getItem('admin_token');
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invitations/${inv.id}`, {
+    const res = await fetch(apiUrl(`/api/invitations/${inv.id}`), {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -51,7 +52,7 @@ export default function AdminInvitationsPage() {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('admin_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invitations`, {
+      const res = await fetch(apiUrl('/api/invitations'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

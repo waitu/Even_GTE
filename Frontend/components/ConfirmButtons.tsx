@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { apiUrl } from 'lib/apiUrl';
 
 type ConfirmValue = 'ATTENDING' | 'DECLINED';
 
@@ -50,8 +51,7 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
     setLoading(true);
     setError('');
     try {
-      const base = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${base}/api/invitations/${slug}/response`, {
+      const res = await fetch(apiUrl(`/api/invitations/${slug}/response`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

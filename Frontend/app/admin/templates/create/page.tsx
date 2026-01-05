@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from 'components/admin/AuthGuard';
 import TemplatePreview from 'components/admin/TemplatePreview';
+import { apiUrl } from 'lib/apiUrl';
 
 interface ScheduleItem {
   time: string;
@@ -82,7 +83,7 @@ export default function CreateTemplatePage() {
       schedule: form.schedule,
     };
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/`, {
+    const res = await fetch(apiUrl('/api/templates/'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

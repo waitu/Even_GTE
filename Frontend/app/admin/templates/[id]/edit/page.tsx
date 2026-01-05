@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AuthGuard from 'components/admin/AuthGuard';
 import TemplatePreview from 'components/admin/TemplatePreview';
+import { apiUrl } from 'lib/apiUrl';
 
 interface ScheduleItem {
   time: string;
@@ -36,7 +37,7 @@ export default function EditTemplatePage() {
   useEffect(() => {
     const run = async () => {
       const token = localStorage.getItem('admin_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/${id}`, {
+      const res = await fetch(apiUrl(`/api/templates/${id}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -103,7 +104,7 @@ export default function EditTemplatePage() {
       schedule: form.schedule,
     };
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/${id}`, {
+    const res = await fetch(apiUrl(`/api/templates/${id}`), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -123,7 +124,7 @@ export default function EditTemplatePage() {
   const handleDelete = async () => {
     if (!confirm('Xóa mẫu này?')) return;
     const token = localStorage.getItem('admin_token');
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/${id}`, {
+    await fetch(apiUrl(`/api/templates/${id}`), {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

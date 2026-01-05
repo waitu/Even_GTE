@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AuthGuard from 'components/admin/AuthGuard';
 import { useRouter } from 'next/navigation';
+import { apiUrl } from 'lib/apiUrl';
 
 interface ScheduleItem {
   time: string;
@@ -50,7 +51,7 @@ export default function CreateInvitationPage() {
   useEffect(() => {
     const run = async () => {
       const token = localStorage.getItem('admin_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/`, {
+      const res = await fetch(apiUrl('/api/templates/'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -107,7 +108,7 @@ export default function CreateInvitationPage() {
     setSaving(true);
     setError('');
     const token = localStorage.getItem('admin_token');
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invitations`, {
+    const res = await fetch(apiUrl('/api/invitations'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
