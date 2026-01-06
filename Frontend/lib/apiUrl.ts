@@ -6,12 +6,11 @@ export function getApiBase(): string {
 
   try {
     const url = new URL(raw);
-    if (
-      window.location.protocol === 'https:' &&
-      url.protocol === 'http:' &&
-      url.hostname === window.location.hostname
-    ) {
-      return `https://${url.host}`;
+    // If the site is served over HTTPS and the API host matches the current host,
+    // always prefer a relative URL (e.g. /api/...) to avoid Mixed Content and
+    // avoid accidentally hard-coding an HTTP origin or port.
+    if (window.location.protocol === 'https:' && url.hostname === window.location.hostname) {
+      return '';
     }
   } catch {
     // If env is not an absolute URL, just use it as-is.

@@ -107,21 +107,26 @@ export default function CreateInvitationPage() {
   const handleSubmit = async (publish = false) => {
     setSaving(true);
     setError('');
-    const token = localStorage.getItem('admin_token');
-    const res = await fetch(apiUrl('/api/invitations'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ ...form, status: publish ? 'published' : 'draft' }),
-    });
-    if (res.ok) {
-      router.push('/admin/invitations');
-    } else {
-      setError('Lỗi lưu thiệp');
+    try {
+      const token = localStorage.getItem('admin_token');
+      const res = await fetch(apiUrl('/api/invitations/'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ...form, status: publish ? 'published' : 'draft' }),
+      });
+      if (res.ok) {
+        router.push('/admin/invitations');
+      } else {
+        setError('Lỗi lưu thiệp');
+      }
+    } catch {
+      setError('Không thể kết nối API');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (

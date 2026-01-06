@@ -28,6 +28,8 @@ export default function AdminLoginPage() {
       } else {
         setError('Sai tài khoản hoặc mật khẩu');
       }
+    } catch {
+      setError('Không thể kết nối API');
     } finally {
       setLoading(false);
     }

@@ -52,7 +52,7 @@ export default function AdminInvitationsPage() {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('admin_token');
-      const res = await fetch(apiUrl('/api/invitations'), {
+      const res = await fetch(apiUrl('/api/invitations/'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
