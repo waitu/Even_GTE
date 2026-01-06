@@ -6,6 +6,13 @@ import AuthGuard from 'components/admin/AuthGuard';
 import TemplatePreview from 'components/admin/TemplatePreview';
 import { apiUrl } from 'lib/apiUrl';
 
+function toDatetimeLocalValue(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value.slice(0, 16);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface ScheduleItem {
   time: string;
   label: string;
@@ -42,7 +49,7 @@ export default function CreateTemplatePage() {
       company_name: form.company_name,
       title: form.title,
       content: form.content,
-      event_time: form.event_time ? new Date(form.event_time).toISOString() : null,
+      event_time: form.event_time ? toDatetimeLocalValue(form.event_time) : null,
       event_location: form.event_location || null,
       google_map_url: form.google_map_url || null,
       schedule: form.schedule,
@@ -77,7 +84,7 @@ export default function CreateTemplatePage() {
       company_name: form.company_name,
       title: form.title,
       content: form.content,
-      event_time: form.event_time ? new Date(form.event_time).toISOString() : null,
+      event_time: form.event_time || null,
       event_location: form.event_location || null,
       google_map_url: form.google_map_url || null,
       schedule: form.schedule,

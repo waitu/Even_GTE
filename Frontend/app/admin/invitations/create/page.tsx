@@ -4,6 +4,13 @@ import AuthGuard from 'components/admin/AuthGuard';
 import { useRouter } from 'next/navigation';
 import { apiUrl } from 'lib/apiUrl';
 
+function toDatetimeLocalValue(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value.slice(0, 16);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface ScheduleItem {
   time: string;
   label: string;
@@ -74,7 +81,7 @@ export default function CreateInvitationPage() {
 
     setForm((prev) => {
       const eventTimeLocal = selectedTemplate.event_time
-        ? new Date(selectedTemplate.event_time).toISOString().slice(0, 16)
+        ? toDatetimeLocalValue(selectedTemplate.event_time)
         : '';
 
       return {

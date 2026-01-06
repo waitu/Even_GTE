@@ -76,12 +76,20 @@ export default function AdminInvitationsPage() {
     <AuthGuard>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-semibold">Danh sách thiệp mời</h1>
-        <Link
-          href="/admin/invitations/create"
-          className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
-        >
-          Tạo mới
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/invitations/import"
+            className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
+          >
+            Import Excel
+          </Link>
+          <Link
+            href="/admin/invitations/create"
+            className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
+          >
+            Tạo mới
+          </Link>
+        </div>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
