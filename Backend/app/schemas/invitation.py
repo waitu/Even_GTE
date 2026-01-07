@@ -32,6 +32,7 @@ class InvitationOut(InvitationBase):
     slug: Optional[str]
     status: str
     rsvp_status: RsvpStatus
+    attendee_count: int = 0
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -40,4 +41,5 @@ class InvitationOut(InvitationBase):
 class InvitationAdminListItem(InvitationOut):
     responses: int = 0
     attending: int = 0
+    attending_people: int = 0
     declined: int = 0

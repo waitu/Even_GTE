@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, Enum, DateTime, JSON, func
+from sqlalchemy import Column, String, Text, Enum, DateTime, JSON, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.models.base import Base
 import enum
@@ -26,4 +26,5 @@ class Invitation(Base):
     slug = Column(String(255), unique=True, nullable=True)
     status = Column(Enum(InvitationStatus), nullable=False, default=InvitationStatus.draft)
     rsvp_status = Column(RSVP_STATUS_ENUM, nullable=False, default=RsvpStatus.PENDING)
+    attendee_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

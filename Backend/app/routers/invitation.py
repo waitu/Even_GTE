@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 import uuid
 from uuid import UUID
 from io import BytesIO
@@ -14,10 +15,66 @@ from app.schemas.invitation_response import InvitationResponseCreate, Invitation
 from app.schemas.invitation_import import InvitationImportResult, InvitationImportCreatedItem, InvitationImportErrorItem
 from slugify import slugify
 from datetime import datetime
+import os
 
 import openpyxl
 
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
+
+
+@router.get("/export", dependencies=[Depends(get_current_admin)])
+def export_invitations(request: Request, db: Session = Depends(get_db)):
+    invitations = db.query(Invitation).order_by(Invitation.created_at.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Invitations"
+
+    origin = request.headers.get("origin")
+    base_url = (os.getenv("PUBLIC_INVITE_BASE_URL") or origin or "").rstrip("/")
+
+    headers = [
+        "recipient_salutation",
+        "recipient_name",
+        "recipient_title",
+        "status",
+        "slug",
+        "invite_url",
+        "rsvp_status",
+        "attendee_count",
+        "created_at",
+    ]
+    ws.append(headers)
+
+    for inv in invitations:
+        slug = inv.slug or ""
+        invite_path = f"/invite/{slug}" if slug else ""
+        invite_url = f"{base_url}{invite_path}" if base_url and slug else invite_path
+
+        ws.append(
+            [
+                inv.recipient_salutation or "",
+                inv.recipient_name,
+                inv.recipient_title,
+                inv.status.value if hasattr(inv.status, "value") else str(inv.status),
+                slug,
+                invite_url,
+                inv.rsvp_status.value if hasattr(inv.rsvp_status, "value") else str(inv.rsvp_status),
+                int(inv.attendee_count or 0),
+                inv.created_at.isoformat() if inv.created_at else "",
+            ]
+        )
+
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    filename = f"invitations_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        bio,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def _generate_unique_slug(db: Session, base_text: str, used: set[str]) -> str:
@@ -61,6 +118,18 @@ def list_invitations(db: Session = Depends(get_db)) -> list[InvitationAdminListI
                 0,
             ).label("attending"),
             func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            InvitationResponse.response == RsvpStatus.ATTENDING,
+                            func.coalesce(InvitationResponse.attendee_count, 1),
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("attending_people"),
+            func.coalesce(
                 func.sum(case((InvitationResponse.response == RsvpStatus.DECLINED, 1), else_=0)),
                 0,
             ).label("declined"),
@@ -71,13 +140,14 @@ def list_invitations(db: Session = Depends(get_db)) -> list[InvitationAdminListI
         .all()
     )
     result: list[InvitationAdminListItem] = []
-    for inv, responses, attending, declined in rows:
+    for inv, responses, attending, attending_people, declined in rows:
         base = InvitationOut.model_validate(inv).model_dump()
         result.append(
             InvitationAdminListItem(
                 **base,
                 responses=int(responses),
                 attending=int(attending),
+                attending_people=int(attending_people),
                 declined=int(declined),
             )
         )
@@ -280,40 +350,48 @@ def respond_invitation(
     if response_value == RsvpStatus.PENDING:
         raise HTTPException(status_code=400, detail="Invalid response")
 
-    # 1 invitation has at most 1 active response per client (identified by cookie).
-    responder_cookie_key = f"invite_responder_{invitation.id}"
-    responder_id_raw = request.cookies.get(responder_cookie_key)
-    try:
-        responder_id = UUID(responder_id_raw) if responder_id_raw else uuid.uuid4()
-    except Exception:
-        responder_id = uuid.uuid4()
+    attendee_count = payload.attendee_count
+    if response_value == RsvpStatus.DECLINED:
+        attendee_count = 0
+    else:
+        if attendee_count is None:
+            attendee_count = 1
+        if attendee_count < 1 or attendee_count > 20:
+            raise HTTPException(status_code=400, detail="attendee_count must be between 1 and 20")
 
+    # 1 invitation has exactly 1 response (last write wins).
     db_response = (
         db.query(InvitationResponse)
-        .filter(
-            InvitationResponse.invitation_id == invitation.id,
-            InvitationResponse.responder_id == responder_id,
-        )
+        .filter(InvitationResponse.invitation_id == invitation.id)
+        .order_by(InvitationResponse.created_at.desc())
         .first()
     )
 
     if db_response:
         db_response.response = response_value
+        db_response.attendee_count = attendee_count
     else:
         db_response = InvitationResponse(
             invitation_id=invitation.id,
-            responder_id=responder_id,
+            responder_id=invitation.id,
             response=response_value,
+            attendee_count=attendee_count,
         )
         db.add(db_response)
 
     invitation.rsvp_status = response_value
+    invitation.attendee_count = attendee_count if response_value == RsvpStatus.ATTENDING else 0
     db.commit()
     db.refresh(db_response)
 
     one_year = 60 * 60 * 24 * 365
-    response.set_cookie(responder_cookie_key, str(responder_id), httponly=True, samesite="lax", max_age=one_year)
-    response.set_cookie(f"invite_choice_{invitation.id}", response_value.value, httponly=False, samesite="lax", max_age=one_year)
+    response.set_cookie(
+        f"invite_choice_{invitation.id}",
+        response_value.value,
+        httponly=False,
+        samesite="lax",
+        max_age=one_year,
+    )
     return db_response
 
 
