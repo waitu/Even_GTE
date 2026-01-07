@@ -12,6 +12,7 @@ interface Invitation {
   recipient_title?: string | null;
   status: string;
   rsvp_status?: 'ATTENDING' | 'DECLINED' | 'PENDING';
+  attendee_count?: number;
   slug?: string;
   responses?: number;
   attending?: number;
@@ -34,6 +35,27 @@ export default function AdminInvitationsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'ATTENDING' | 'DECLINED' | 'PENDING'>('ALL');
+
+  const handleExport = async () => {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(apiUrl('/api/invitations/export'), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      window.alert('Không thể export Excel');
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invitations_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const handleDelete = async (inv: Invitation) => {
     const ok = window.confirm(`Xóa thiệp mời "${inv.title}"?`);
@@ -68,6 +90,11 @@ export default function AdminInvitationsPage() {
     attending: invitations.filter((x) => (x.rsvp_status ?? 'PENDING') === 'ATTENDING').length,
     declined: invitations.filter((x) => (x.rsvp_status ?? 'PENDING') === 'DECLINED').length,
     pending: invitations.filter((x) => (x.rsvp_status ?? 'PENDING') === 'PENDING').length,
+    attendingPeople: invitations.reduce((sum, x) => {
+      if ((x.rsvp_status ?? 'PENDING') !== 'ATTENDING') return sum;
+      const n = typeof x.attendee_count === 'number' ? x.attendee_count : 1;
+      return sum + Math.max(1, n);
+    }, 0),
   };
 
   const filtered = filter === 'ALL' ? invitations : invitations.filter((x) => (x.rsvp_status ?? 'PENDING') === filter);
@@ -77,6 +104,13 @@ export default function AdminInvitationsPage() {
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-semibold">Danh sách thiệp mời</h1>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
+          >
+            Export Excel
+          </button>
           <Link
             href="/admin/invitations/import"
             className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/10"
@@ -96,6 +130,8 @@ export default function AdminInvitationsPage() {
           <span className="text-white/70">Tổng:</span> <span className="text-white/90 font-semibold">{stats.total}</span>
           <span className="mx-3 text-white/20">|</span>
           <span className="text-white/70">ATTENDING:</span> <span className="text-white/90 font-semibold">{stats.attending}</span>
+          <span className="mx-3 text-white/20">|</span>
+          <span className="text-white/70">Số người tham dự:</span> <span className="text-white/90 font-semibold">{stats.attendingPeople}</span>
           <span className="mx-3 text-white/20">|</span>
           <span className="text-white/70">DECLINED:</span> <span className="text-white/90 font-semibold">{stats.declined}</span>
           <span className="mx-3 text-white/20">|</span>
@@ -129,7 +165,7 @@ export default function AdminInvitationsPage() {
               <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Chức danh</th>
               <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Trạng thái</th>
               <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">RSVP</th>
-              <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Xác nhận</th>
+              <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Số người</th>
               <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Link</th>
               <th className="p-3 text-left bg-white/5 text-white/80 font-semibold whitespace-nowrap">Thao tác</th>
             </tr>
@@ -144,7 +180,11 @@ export default function AdminInvitationsPage() {
                 <td className="p-3 text-white/70">{inv.recipient_title || '-'}</td>
                 <td className="p-3 text-white/80">{inv.status}</td>
                 <td className="p-3"><RsvpBadge value={inv.rsvp_status} /></td>
-                <td className="p-3 text-white/80">{inv.responses ?? 0}</td>
+                <td className="p-3 text-white/80">
+                  {(inv.rsvp_status ?? 'PENDING') === 'ATTENDING'
+                    ? Math.max(1, inv.attendee_count ?? 1)
+                    : '-'}
+                </td>
                 <td className="p-3">
                   {inv.slug ? (
                     <a href={`/invite/${inv.slug}`} target="_blank" className="text-gold underline">Xem</a>

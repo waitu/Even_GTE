@@ -14,16 +14,37 @@ function readCookie(name: string): string | null {
   return null;
 }
 
-export default function ConfirmButtons({ slug, invitationId }: { slug: string; invitationId: string }) {
+export default function ConfirmButtons({
+  slug,
+  invitationId,
+  initialConfirmed,
+  initialAttendeeCount,
+}: {
+  slug: string;
+  invitationId: string;
+  initialConfirmed?: ConfirmValue | null;
+  initialAttendeeCount?: number;
+}) {
   const storageKey = useMemo(() => `invite_confirmed_${invitationId}`, [invitationId]);
+  const countStorageKey = useMemo(() => `invite_attendees_${invitationId}`, [invitationId]);
   const cookieChoiceKey = useMemo(() => `invite_choice_${invitationId}`, [invitationId]);
   const [confirmed, setConfirmed] = useState<ConfirmValue | null>(null);
+  const [attendeeCount, setAttendeeCount] = useState<number>(1);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [showAttendModal, setShowAttendModal] = useState(false);
   const disabled = loading || (confirmed !== null && !editMode);
 
   useEffect(() => {
+    if (initialConfirmed === 'ATTENDING' || initialConfirmed === 'DECLINED') {
+      setConfirmed(initialConfirmed);
+      if (initialConfirmed === 'ATTENDING') {
+        const n = typeof initialAttendeeCount === 'number' ? initialAttendeeCount : 1;
+        setAttendeeCount(Math.max(1, Math.min(20, Math.trunc(n || 1))));
+      }
+    }
+
     const syncFromCookie = () => {
       const v = readCookie(cookieChoiceKey);
       if (v === 'ATTENDING' || v === 'DECLINED') {
@@ -42,20 +63,28 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
       const saved = localStorage.getItem(storageKey) as ConfirmValue | null;
       if (saved === 'ATTENDING' || saved === 'DECLINED') setConfirmed(saved);
       else syncFromCookie();
+
+      const countSaved = localStorage.getItem(countStorageKey);
+      const parsed = countSaved ? Number(countSaved) : NaN;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setAttendeeCount(Math.max(1, Math.min(20, Math.trunc(parsed))));
+      }
     } catch {
       syncFromCookie();
     }
-  }, [cookieChoiceKey, storageKey]);
+  }, [cookieChoiceKey, storageKey, countStorageKey, initialAttendeeCount, initialConfirmed]);
 
   const handleConfirm = async (value: ConfirmValue) => {
     setLoading(true);
     setError('');
     try {
+      const body: { response: ConfirmValue; attendee_count?: number } = { response: value };
+      if (value === 'ATTENDING') body.attendee_count = attendeeCount;
       const res = await fetch(apiUrl(`/api/invitations/${slug}/response`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ response: value }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         try {
@@ -67,9 +96,12 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
         return;
       }
       setConfirmed(value);
+      if (value === 'DECLINED') setAttendeeCount(0);
       setEditMode(false);
+      setShowAttendModal(false);
       try {
         localStorage.setItem(storageKey, value);
+        if (value === 'ATTENDING') localStorage.setItem(countStorageKey, String(attendeeCount));
       } catch {
         // ignore
       }
@@ -106,7 +138,11 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
 
         {confirmed && !editMode ? (
           <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
-            Đã ghi nhận: <span className="font-semibold text-white/90">{confirmedLabel}</span>
+            Đã ghi nhận:{' '}
+            <span className="font-semibold text-white/90">
+              {confirmedLabel}
+              {attendingActive ? ` (${Math.max(1, attendeeCount)} người)` : ''}
+            </span>
           </div>
         ) : null}
 
@@ -119,7 +155,12 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
                 : 'bg-white/10 border border-white/10 text-white/90 hover:bg-white/15')
             }
             disabled={disabled}
-            onClick={() => handleConfirm('ATTENDING')}
+            onClick={() => {
+              setError('');
+              if (disabled) return;
+              setAttendeeCount(attendeeCount > 0 ? attendeeCount : 1);
+              setShowAttendModal(true);
+            }}
           >
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-600 text-white text-[12px]">✓</span>
             Tôi sẽ tham dự
@@ -146,6 +187,77 @@ export default function ConfirmButtons({ slug, invitationId }: { slug: string; i
         ) : null}
         {confirmed && editMode ? (
           <div className="mt-2 text-center text-xs text-white/60">Chọn lại để cập nhật phản hồi.</div>
+        ) : null}
+
+        {showAttendModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => {
+                if (!loading) setShowAttendModal(false);
+              }}
+            />
+            <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-5">
+              <div className="text-xs font-semibold tracking-[0.22em] uppercase text-amber-200/80">Xác nhận</div>
+              <div className="mt-1 font-semibold text-base text-white/90">Bạn sẽ tham dự với bao nhiêu người?</div>
+              <div className="mt-1 text-sm text-white/70">Giúp ban tổ chức sắp xếp bàn tiệc phù hợp.</div>
+
+              <div className="mt-4 grid gap-3">
+                <button
+                  type="button"
+                  disabled={loading}
+                  className={
+                    'w-full rounded-xl border px-4 py-3 text-sm font-semibold transition disabled:opacity-60 ' +
+                    (attendeeCount === 1
+                      ? 'bg-gold text-black border-gold/50'
+                      : 'bg-white/10 border-white/10 text-white/90 hover:bg-white/15')
+                  }
+                  onClick={() => setAttendeeCount(1)}
+                >
+                  Chỉ mình tôi (1 người)
+                </button>
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-sm font-semibold text-white/90">Tôi đi cùng</div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={attendeeCount}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        setAttendeeCount(Math.max(1, Math.min(20, Math.trunc(n))));
+                      }}
+                      className="w-24 rounded-xl bg-black/40 border border-white/10 px-3 py-2 outline-none text-white/90"
+                    />
+                    <div className="text-sm text-white/70">người</div>
+                  </div>
+                  <div className="mt-2 text-xs text-white/60">Tối đa 20 người.</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-3 text-sm font-semibold text-white/80 disabled:opacity-60"
+                    onClick={() => setShowAttendModal(false)}
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    className="rounded-xl border border-gold/50 bg-gold text-black px-4 py-3 text-sm font-semibold disabled:opacity-60"
+                    onClick={() => handleConfirm('ATTENDING')}
+                  >
+                    Xác nhận tham dự
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
     </section>

@@ -71,7 +71,12 @@ export default async function InvitationPage({ params }: { params: { slug: strin
               mapUrl={invitation.google_map_url}
             />
 
-            <ConfirmButtons slug={params.slug} invitationId={invitation.id} />
+            <ConfirmButtons
+              slug={params.slug}
+              invitationId={invitation.id}
+              initialConfirmed={invitation.rsvp_status === 'ATTENDING' || invitation.rsvp_status === 'DECLINED' ? invitation.rsvp_status : null}
+              initialAttendeeCount={typeof invitation.attendee_count === 'number' ? invitation.attendee_count : 0}
+            />
 
             {invitation.schedule && invitation.schedule.length > 0 ? (
               <ProgramTimeline schedule={invitation.schedule} />
