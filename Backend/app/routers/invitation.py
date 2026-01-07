@@ -107,6 +107,16 @@ def _cell_text(v: object) -> str:
     return str(v).strip()
 
 
+def _safe_cell_text(row: tuple[object, ...], idx: int | None) -> str:
+    if idx is None:
+        return ""
+    if idx < 0:
+        return ""
+    if idx >= len(row):
+        return ""
+    return _cell_text(row[idx])
+
+
 @router.get("/", dependencies=[Depends(get_current_admin)])
 def list_invitations(db: Session = Depends(get_db)) -> list[InvitationAdminListItem]:
     rows = (
@@ -284,11 +294,9 @@ async def import_invitations(
     for row in rows_iter:
         excel_row_num += 1
 
-        name = _cell_text(row[index_map["recipient_name"]]) if index_map.get("recipient_name") is not None else ""
-        title = _cell_text(row[index_map["recipient_title"]]) if index_map.get("recipient_title") is not None else ""
-        salutation = ""
-        if "recipient_salutation" in index_map:
-            salutation = _cell_text(row[index_map["recipient_salutation"]])
+        name = _safe_cell_text(row, index_map.get("recipient_name"))
+        title = _safe_cell_text(row, index_map.get("recipient_title"))
+        salutation = _safe_cell_text(row, index_map.get("recipient_salutation"))
 
         if not name and not title and not salutation:
             skipped += 1
